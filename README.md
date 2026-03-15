@@ -170,6 +170,56 @@ Final grade: **A** ≥ 90 · **B** ≥ 75 · **C** ≥ 60 · **D** ≥ 40 · **F
 
 ---
 
+## Add-ons
+
+Once HomelabGuard is installed, you can extend scan coverage by running add-on scripts from inside the LXC. Each add-on installs a new scanner module and plugs into the existing pipeline automatically — no manual wiring required.
+
+### How it works
+
+The first add-on you install sets up a dynamic plugin loader inside the backend. Every subsequent add-on just drops a Python module into `scanner/addons/` and it gets picked up automatically on the next scan.
+
+### Installing an add-on
+
+```bash
+# From inside the HomelabGuard LXC, as root:
+bash <(curl -fsSL https://raw.githubusercontent.com/youruser/homelabguard/main/add-ons/addon-nginx.sh)
+```
+
+Or copy the script and run it locally:
+
+```bash
+bash add-ons/addon-nginx.sh
+```
+
+### Available add-ons
+
+| Add-on | Script | What it checks |
+|--------|--------|----------------|
+| **nginx** | `addon-nginx.sh` | Version exposure, security headers (CSP, HSTS, X-Frame…), default page, `/nginx_status` |
+| **Apache** | `addon-apache.sh` | Version/OS exposure, TRACE method, `/server-status`, `/server-info`, directory listing |
+| **PHP** | `addon-php.sh` | Version in headers, `phpinfo()` pages, exposed `composer.json` / `.env` |
+| **HAProxy** | `addon-haproxy.sh` | Unauthenticated stats page, version in headers |
+| **Roundcube** | `addon-roundcube.sh` | Version exposure, installer left accessible, logs/temp directory listing |
+| **WordPress** | `addon-wordpress.sh` | `xmlrpc.php`, `wp-login.php`, version in meta, uploads listing, `debug.log` |
+| **Docker** | `addon-docker.sh` | Unauthenticated Docker API (2375), Portainer (9000/9443), registry (5000) |
+| **MariaDB / DBs** | `addon-mariadb.sh` | Exposed ports: MySQL, PostgreSQL, MongoDB, Redis, MSSQL, CouchDB, Cassandra |
+| **SSH Hardening** | `addon-ssh-hardening.sh` | OpenSSH version, weak ciphers, weak KEX algorithms, weak MACs |
+
+### Stacking add-ons
+
+Add-ons are fully composable — install as many as you want:
+
+```bash
+bash add-ons/addon-nginx.sh
+bash add-ons/addon-php.sh
+bash add-ons/addon-wordpress.sh
+bash add-ons/addon-docker.sh
+```
+
+Each one is idempotent: running it twice has no side effect.
+
+---
+
 ## Discord notifications
 
 Set `DISCORD_WEBHOOK` in `/opt/homelabguard/.env` to receive:

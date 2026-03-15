@@ -170,6 +170,56 @@ Note finale : **A** ≥ 90 · **B** ≥ 75 · **C** ≥ 60 · **D** ≥ 40 · **
 
 ---
 
+## Add-ons
+
+Une fois HomelabGuard installé, tu peux étendre la couverture des scans en exécutant des scripts add-on depuis l'intérieur du LXC. Chaque add-on installe un nouveau module de scan et se branche automatiquement dans le pipeline existant — aucun câblage manuel nécessaire.
+
+### Comment ça fonctionne
+
+Le premier add-on installé met en place un loader dynamique dans le backend. Chaque add-on suivant dépose simplement un module Python dans `scanner/addons/` et il est automatiquement pris en compte au prochain scan.
+
+### Installer un add-on
+
+```bash
+# Depuis l'intérieur du LXC HomelabGuard, en root :
+bash <(curl -fsSL https://raw.githubusercontent.com/youruser/homelabguard/main/add-ons/addon-nginx.sh)
+```
+
+Ou en copiant le script et en l'exécutant localement :
+
+```bash
+bash add-ons/addon-nginx.sh
+```
+
+### Add-ons disponibles
+
+| Add-on | Script | Ce qu'il vérifie |
+|--------|--------|-----------------|
+| **nginx** | `addon-nginx.sh` | Exposition de version, headers de sécurité (CSP, HSTS, X-Frame…), page par défaut, `/nginx_status` |
+| **Apache** | `addon-apache.sh` | Exposition version/OS, méthode TRACE, `/server-status`, `/server-info`, listing de répertoire |
+| **PHP** | `addon-php.sh` | Version dans les headers, pages `phpinfo()`, `composer.json` / `.env` exposés |
+| **HAProxy** | `addon-haproxy.sh` | Page de stats non authentifiée, version dans les headers |
+| **Roundcube** | `addon-roundcube.sh` | Exposition de version, installeur laissé accessible, listing logs/temp |
+| **WordPress** | `addon-wordpress.sh` | `xmlrpc.php`, `wp-login.php`, version dans la meta, listing uploads, `debug.log` |
+| **Docker** | `addon-docker.sh` | API Docker non authentifiée (2375), Portainer (9000/9443), registry (5000) |
+| **MariaDB / BDD** | `addon-mariadb.sh` | Ports exposés : MySQL, PostgreSQL, MongoDB, Redis, MSSQL, CouchDB, Cassandra |
+| **SSH Hardening** | `addon-ssh-hardening.sh` | Version OpenSSH, ciphers faibles, algorithmes KEX faibles, MACs faibles |
+
+### Cumuler les add-ons
+
+Les add-ons sont entièrement composables — installe-en autant que tu veux :
+
+```bash
+bash add-ons/addon-nginx.sh
+bash add-ons/addon-php.sh
+bash add-ons/addon-wordpress.sh
+bash add-ons/addon-docker.sh
+```
+
+Chaque add-on est idempotent : l'exécuter deux fois n'a aucun effet de bord.
+
+---
+
 ## Notifications Discord
 
 Renseigne `DISCORD_WEBHOOK` dans `/opt/homelabguard/.env` pour recevoir :
