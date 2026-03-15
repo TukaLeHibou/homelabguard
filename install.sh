@@ -197,7 +197,7 @@ class ProxmoxClient:
         r = requests.get(f"{self.host}/api2/json{path}",
                          headers=self.hdrs, verify=False, timeout=10)
         r.raise_for_status()
-        return r.json().get("data", [])
+        return r.json().get("data") or []
 
     def get_all_guests(self):
         guests = []
