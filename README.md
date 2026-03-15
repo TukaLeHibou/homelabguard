@@ -17,9 +17,14 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Self-hosted](https://img.shields.io/badge/self--hosted-100%25-22c55e?style=flat-square)](#)
 
+[🇫🇷 Version française](README.fr.md)
+
 </div>
 
 ---
+
+<!-- Replace with an actual screenshot: docs/screenshot.png -->
+<!-- ![HomelabGuard dashboard](docs/screenshot.png) -->
 
 ## What is this?
 

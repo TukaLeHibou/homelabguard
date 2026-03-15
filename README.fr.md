@@ -23,6 +23,9 @@
 
 ---
 
+<!-- Remplace par un vrai screenshot : docs/screenshot.png -->
+<!-- ![Dashboard HomelabGuard](docs/screenshot.png) -->
+
 ## C'est quoi ?
 
 HomelabGuard est un scanner de sécurité en une seule commande, qui s'installe dans un conteneur LXC Proxmox et audite en continu toute l'infrastructure de ton homelab.
