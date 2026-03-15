@@ -764,8 +764,99 @@ function NodeCard({ node, onScan, onClick, scanning }) {
 
 const SEV_COLOR = { critical:'#ef4444', high:'#f97316', medium:'#eab308', low:'#22c55e', info:'#3b82f6' };
 
+const REMEDIATIONS = {
+  // ── Proxmox ────────────────────────────────────────────────────────────────
+  privileged_container:            'Set Unprivileged to ✓ in Datacenter → CT Options, then restart the container.',
+  nesting_enabled:                 'Disable nesting in CT Options → Features unless Docker is explicitly required.',
+  // ── nmap ───────────────────────────────────────────────────────────────────
+  too_many_open_ports:             'Run `ss -tlnp` to list open services and disable unused ones. Use a firewall to restrict access.',
+  scan_error:                      'Verify nmap is installed (`apt install nmap`) and the node IP is reachable from this host.',
+  // ── CVE ────────────────────────────────────────────────────────────────────
+  vulnerable_package:              'Run `apt update && apt upgrade <package>` on this host to patch the vulnerability.',
+  outdated_packages:               'Run `apt update && apt upgrade` to apply all pending security updates.',
+  // ── SSH ────────────────────────────────────────────────────────────────────
+  ssh_root_login:                  'Edit /etc/ssh/sshd_config → set PermitRootLogin no, then run `systemctl restart sshd`.',
+  ssh_password_auth:               'Edit /etc/ssh/sshd_config → set PasswordAuthentication no. Use SSH key pairs instead.',
+  ssh_empty_pwd:                   'Edit /etc/ssh/sshd_config → set PermitEmptyPasswords no. This is critical — fix immediately.',
+  ssh_outdated_version:            'Run `apt update && apt upgrade openssh-server` to get the latest patched version.',
+  ssh_weak_ciphers:                'Add to /etc/ssh/sshd_config: Ciphers aes256-gcm@openssh.com,chacha20-poly1305@openssh.com — then restart sshd.',
+  ssh_weak_kex:                    'Add to /etc/ssh/sshd_config: KexAlgorithms curve25519-sha256,diffie-hellman-group14-sha256 — then restart sshd.',
+  ssh_weak_macs:                   'Add to /etc/ssh/sshd_config: MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com — then restart sshd.',
+  // ── Firewall ───────────────────────────────────────────────────────────────
+  no_firewall:                     'Run: apt install ufw && ufw default deny incoming && ufw allow ssh && ufw enable',
+  wide_open_services:              'Bind each service to 127.0.0.1 in its config, or add firewall rules to restrict which IPs can connect.',
+  // ── nginx ──────────────────────────────────────────────────────────────────
+  nginx_version_exposure:          'Add `server_tokens off;` inside the http {} block in /etc/nginx/nginx.conf, then reload nginx.',
+  clickjacking_missing_xfo:        'Add to nginx server block: add_header X-Frame-Options "SAMEORIGIN" always;',
+  missing_xcto:                    'Add to nginx server block: add_header X-Content-Type-Options "nosniff" always;',
+  missing_hsts:                    'Add to nginx (HTTPS only): add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;',
+  missing_csp:                     'Add to nginx: add_header Content-Security-Policy "default-src \'self\';" always; — adjust policy as needed.',
+  missing_xxss:                    'Add to nginx: add_header X-XSS-Protection "1; mode=block" always;',
+  nginx_default_page:              'Remove the default site: rm /etc/nginx/sites-enabled/default && systemctl reload nginx',
+  nginx_status_exposed:            'Restrict /nginx_status to localhost in your nginx config: add `allow 127.0.0.1; deny all;` inside the location block.',
+  // ── Apache ─────────────────────────────────────────────────────────────────
+  apache_version_exposure:         'Add to apache2.conf: ServerTokens Prod and ServerSignature Off — then systemctl restart apache2.',
+  apache_os_exposure:              'Add to apache2.conf: ServerTokens Prod — this hides both version and OS from the Server header.',
+  apache_trace_enabled:            'Add to apache2.conf: TraceEnable Off — then restart Apache.',
+  apache_server_status_exposed:    'Inside the <Location /server-status> block, replace `Require all granted` with `Require ip 127.0.0.1`.',
+  apache_server_info_exposed:      'Inside the <Location /server-info> block, add `Require ip 127.0.0.1` to block public access.',
+  apache_directory_listing:        'Add `Options -Indexes` to the relevant Directory block or VirtualHost in your Apache config.',
+  // ── PHP ────────────────────────────────────────────────────────────────────
+  php_version_exposure:            'Set `expose_php = Off` in /etc/php/*/apache2/php.ini (or fpm/php.ini), then restart the web server.',
+  phpinfo_exposed:                 'Delete the file immediately: rm /var/www/html/phpinfo.php (or wherever it lives).',
+  sensitive_file_exposed:          'Move the file outside the webroot or block access via your web server config (deny from all).',
+  // ── HAProxy ────────────────────────────────────────────────────────────────
+  haproxy_stats_exposed:           'Add `stats auth admin:strongpassword` in the stats section of /etc/haproxy/haproxy.cfg, then reload.',
+  haproxy_version_exposure:        'Add `http-response del-header Server` in your HAProxy frontend/backend to strip the version header.',
+  // ── Roundcube ──────────────────────────────────────────────────────────────
+  roundcube_version_exposure:      'Set $config[\'product_name\'] = \'Webmail\'; in config/config.inc.php to hide the version.',
+  roundcube_installer_exposed:     'Delete the installer directory: rm -rf /var/www/html/roundcube/installer',
+  roundcube_dir_exposed:           'Block web access to logs/ and temp/ in your nginx/Apache config, or add `deny from all` in .htaccess.',
+  // ── WordPress ──────────────────────────────────────────────────────────────
+  wordpress_version_exposure:      'Add to functions.php: remove_action(\'wp_head\', \'wp_generator\');',
+  wordpress_xmlrpc_exposed:        'Block in nginx: `location = /xmlrpc.php { deny all; }` — or use a security plugin to disable it.',
+  wordpress_login_exposed:         'Install Limit Login Attempts Reloaded or configure Fail2ban to block brute-force on wp-login.php.',
+  wordpress_readme_exposed:        'Delete readme.html and license.txt from the WordPress root directory.',
+  wordpress_uploads_listing:       'Add `Options -Indexes` to wp-content/uploads/.htaccess to disable directory listing.',
+  wordpress_debug_log_exposed:     'Set define(\'WP_DEBUG\', false); in wp-config.php, or block access to debug.log in your web server config.',
+  // ── Docker ─────────────────────────────────────────────────────────────────
+  docker_api_exposed:              'Remove -H tcp://0.0.0.0:2375 from dockerd config. Use the Unix socket only: /var/run/docker.sock.',
+  docker_api_tls_no_mtls:         'Configure mTLS on the Docker daemon with --tlsverify, --tlscacert, --tlscert, --tlskey.',
+  portainer_exposed:               'Verify Portainer requires authentication. Bind it to localhost and use a reverse proxy with auth if needed.',
+  docker_registry_unauthenticated: 'Enable registry authentication using htpasswd or an auth proxy (e.g. Docker Token Auth).',
+  docker_registry_exposed:         'Restrict port 5000 to trusted IPs only via firewall or nginx upstream ACL.',
+  // ── Databases ──────────────────────────────────────────────────────────────
+  mysql_exposed:                   'Set `bind-address = 127.0.0.1` in /etc/mysql/mysql.conf.d/mysqld.cnf, then restart MySQL.',
+  postgres_exposed:                'Edit postgresql.conf: set `listen_addresses = \'localhost\'`, then restart PostgreSQL.',
+  mssql_exposed:                   'Restrict SQL Server port 1433 via firewall rules — it should never be internet-facing.',
+  mongodb_exposed:                 'Set `bindIp: 127.0.0.1` in /etc/mongod.conf and enable `security: authorization: enabled`.',
+  redis_exposed:                   'Set `bind 127.0.0.1` and `requirepass yourStrongPassword` in /etc/redis/redis.conf.',
+  couchdb_exposed:                 'Set `bind_address = 127.0.0.1` in /etc/couchdb/local.ini and enable CouchDB authentication.',
+  cassandra_exposed:               'Set `listen_address` and `rpc_address` to localhost in cassandra.yaml.',
+};
+
+const PORT_FIXES = {
+  21:    'Disable FTP — use SFTP (built into SSH) instead. Block port 21 at the firewall.',
+  23:    'Disable Telnet immediately: `systemctl stop telnetd && apt remove telnetd`. Use SSH.',
+  445:   'Block port 445 at the firewall. SMB should never be exposed outside a trusted LAN.',
+  3389:  'Restrict RDP to VPN access only via firewall. Enable Network Level Authentication (NLA).',
+  5900:  'Set a strong VNC password or disable VNC and tunnel it through SSH instead.',
+  6379:  'Set `bind 127.0.0.1` and `requirepass` in /etc/redis/redis.conf, then restart Redis.',
+  9200:  'Set `network.host: 127.0.0.1` in elasticsearch.yml and restart Elasticsearch.',
+  27017: 'Set `bindIp: 127.0.0.1` in /etc/mongod.conf and enable `security.authorization: enabled`.',
+  2375:  'Remove -H tcp:// from Docker daemon config. The socket must never be exposed without TLS.',
+  5432:  'Edit postgresql.conf: set `listen_addresses = \'localhost\'`, then restart PostgreSQL.',
+};
+
 function FindingRow({ f }) {
   const c = SEV_COLOR[f.severity] || '#6b7280';
+
+  let fix = REMEDIATIONS[f.type] || null;
+  if (f.type === 'risky_port') {
+    const m = f.message.match(/Port (\d+)/);
+    fix = m ? (PORT_FIXES[parseInt(m[1])] || 'Close this port via firewall or disable the service.') : 'Close this port via firewall or disable the service.';
+  }
+
   return (
     <div style={{
       padding:'10px 14px', background:'#0f172a',
@@ -776,6 +867,14 @@ function FindingRow({ f }) {
         {f.penalty > 0 && <span style={{ fontSize:11, color:'#ef4444' }}>−{f.penalty} pts</span>}
       </div>
       <p style={{ color:'#cbd5e1', fontSize:13 }}>{f.message}</p>
+      {fix && (
+        <div style={{ marginTop:8, paddingTop:8, borderTop:'1px solid #1e293b', display:'flex', alignItems:'flex-start', gap:6 }}>
+          <span style={{ fontSize:12, flexShrink:0, marginTop:1 }}>🔧</span>
+          <p style={{ fontSize:12, color:'#64748b', lineHeight:1.6, margin:0 }}>
+            <span style={{ color:'#94a3b8', fontWeight:600 }}>Fix: </span>{fix}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
